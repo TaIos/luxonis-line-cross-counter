@@ -116,7 +116,7 @@ class LineCrossCounter:
         self.retain_time_sec = retain_time_sec
         self._first_seen = dict()
         self._last_seen = dict()
-        self._line_vec = np.array([pt1.x, pt1.y])
+        self._line_vec_norm = np.array([pt2.y-pt1.y, -(pt2.x-pt1.x)])
 
     def update(self, ident: int, bbox: dai.Rect) -> None:
         """Updates internal state with one detection.
@@ -142,18 +142,18 @@ class LineCrossCounter:
         }
 
     def _calc_sign(self, x: float, y: float) -> float:
-        """Sign a dot product of a vector represented by input point and line.
-        Sign tells you on which side of the line the point lies.
-        Returns -1, 1 or 0 if the point lies directly on line."""
-        return math.copysign(1, np.dot(np.array([x,y]), self._line_vec))
+        """Sign of a dot product of a line normal vector and centered point 
+        tells you on which side of the line the point lies.
+        Returns -1, 1 or 0 (almost never) if the point lies directly on line."""
+        return math.copysign(1, np.dot(np.array([x-self.pt1.x,y-self.pt1.y]), self._line_vec_norm))
 
     def _update_counter_if_crossed(self, ident: int, bbox: dai.Rect):
         s1, s2 = self._first_seen[ident]['sign'], self._last_seen[ident]['sign']
         if s1 != s2:
             if s1 > 0:
-                self.crossed_from_left += 1
-            else:
                 self.crossed_from_right += 1
+            else:
+                self.crossed_from_left += 1
             self._remove_detected_object(ident)
             
     def _run_cleanup(self):
@@ -183,7 +183,7 @@ class LineCrossCounter:
     def _calc_center(rec: dai.Rect):
         tl, br  = rec.topLeft(), rec.bottomRight()
         w,h = br.x - tl.x, tl.y - br.y
-        return w/2, h/2
+        return br.x-w/2, tl.y-h/2
 
 class DaiDevice(robothub.RobotHubDevice):
     def __init__(self, app, mx_id, line_cross_counter: LineCrossCounter):
@@ -419,6 +419,7 @@ class DaiDevice(robothub.RobotHubDevice):
                     }
                 ]
             }
+
             # 9. Get the bytes of the H264 encoded frame
             frame_bytes = bytes(packet_1.imgFrame.getData())
             # 10. Get a timestamp (doesn't have to be super precise, but should be increasing or at least non-decreasing)
