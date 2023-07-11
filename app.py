@@ -159,10 +159,13 @@ class LineCrossCounter:
     def _run_cleanup(self):
         """Remove records whose last seen timestamp exceeds retain time"""
         now = datetime.now()
+        to_remove = []
         for ident in self._last_seen.keys():
             diff = now - self._last_seen[ident]['timestamp']
             if diff.total_seconds() > self.retain_time_sec:
-                self._remove_detected_object(ident)
+                to_remove.append(ident)
+        for ident in to_remove:
+            self._remove_detected_object(ident)
 
     def _remove_detected_object(self, ident: int):
         del self._first_seen[ident]
