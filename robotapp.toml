@@ -1,0 +1,18 @@
+config_version = "2.0"
+configuration = []
+
+[detection-line-relative]
+pt1_xy = [0.5, 0.1]
+pt2_xy = [0.5, 0.9]
+
+[info]
+name = "line-cross-counter"
+description = "This is a generated description. Replace it with your own."
+
+[runtime]
+application = "app.py#ExampleApplication"
+workdir = "/app"
+
+[runtime.runs_on]
+type = "hub-os"
+version = "2023.041.1201"
