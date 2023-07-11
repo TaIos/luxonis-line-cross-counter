@@ -101,7 +101,7 @@ class ExampleApplication(robothub.RobotHubApplication):
             raise Exception(f'Could not exit device error: {e}')
 
 class LineCrossCounter:
-    def __init__(self, pt1: dai.Point2f, pt2: dai.Point2f, retain_time_sec: float = 30):
+    def __init__(self, pt1: dai.Point2f, pt2: dai.Point2f, retain_time_sec: float = 5):
         """
         Args:
             pt1: line start, relative coords
@@ -113,7 +113,7 @@ class LineCrossCounter:
         self.pt2 = pt2
         self.crossed_from_left  = 0 # also top-bottom crossed
         self.crossed_from_right = 0 # also bottom-top crossed
-        self.retain_time_ms = retain_time_sec * 1000
+        self.retain_time_sec = retain_time_sec
         self._first_seen = dict()
         self._last_seen = dict()
         self._line_vec = np.array([pt1.x, pt1.y])
@@ -125,14 +125,14 @@ class LineCrossCounter:
             ident (int): unique identifier of the detected object
             bbox (dai.Rect): bounding box of the detection, not normalized
         """
-        if ident not in self.first_seen:
+        if ident not in self._first_seen:
             self._first_seen[ident] = self._create_record(ident, bbox)
         self._last_seen[ident] = self._create_record(ident, bbox)
         self._update_counter_if_crossed(ident, bbox)
         self._run_cleanup() # TODO run periodically, e.g. every one minute or use depthai tools for forgetting?
 
-    def _create_record(ident: int, bbox: dai.Rect):
-        center_x, center_y = LineCrossCounter.calc_center(bbox)
+    def _create_record(self, ident: int, bbox: dai.Rect):
+        center_x, center_y = LineCrossCounter._calc_center(bbox)
         return {
             'ident': ident,
             'center_x': center_x,
@@ -141,7 +141,7 @@ class LineCrossCounter:
             'sign': self._calc_sign(center_x, center_y)
         }
 
-    def _cal_sign(x: float, y: float) -> float:
+    def _calc_sign(self, x: float, y: float) -> float:
         """Sign a dot product of a vector represented by input point and line.
         Sign tells you on which side of the line the point lies.
         Returns -1, 1 or 0 if the point lies directly on line."""
@@ -161,7 +161,7 @@ class LineCrossCounter:
         now = datetime.now()
         for ident in self._last_seen.keys():
             diff = now - self._last_seen[ident]['timestamp']
-            if diff > self.retain_time_ms:
+            if diff.total_seconds() > self.retain_time_sec:
                 self._remove_detected_object(ident)
 
     def _remove_detected_object(self, ident: int):
@@ -178,12 +178,9 @@ class LineCrossCounter:
     
     @staticmethod
     def _calc_center(rec: dai.Rect):
-        tl, br  = rec.topLeft(), rec.bottom_right()
+        tl, br  = rec.topLeft(), rec.bottomRight()
         w,h = br.x - tl.x, tl.y - br.y
         return w/2, h/2
-
-
-        
 
 class DaiDevice(robothub.RobotHubDevice):
     def __init__(self, app, mx_id, line_cross_counter: LineCrossCounter):
